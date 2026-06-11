@@ -1,0 +1,73 @@
+# ─────────────────────────────────────────────────────────────
+# docker-compose.yml — local self-hosted NetBird control plane.
+#
+# Components:
+#   caddy          : TLS termination (self-signed) + routing on 80/443
+#   netbird-server : combined management + signal + relay + STUN + IdP
+#   dashboard      : web UI
+#
+# TLS uses the locally generated self-signed cert (no Let's Encrypt).
+# Rendered config.yaml / dashboard.env are produced by netbird-up.sh.
+# ─────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "100m"
+      max-file: "2"
+
+services:
+  caddy:
+    image: caddy:2.8
+    container_name: netbird-caddy
+    restart: unless-stopped
+    networks: [netbird]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - dashboard
+      - netbird-server
+    <<: *default-logging
+
+  dashboard:
+    image: netbirdio/dashboard:latest
+    container_name: netbird-dashboard
+    restart: unless-stopped
+    networks: [netbird]
+    env_file:
+      - ./dashboard.env
+    <<: *default-logging
+
+  netbird-server:
+    image: netbirdio/netbird-server:latest
+    container_name: netbird-server
+    restart: unless-stopped
+    networks: [netbird]
+    ports:
+      # STUN must be reachable over UDP; it cannot be proxied via HTTP.
+      - "3478:3478/udp"
+    volumes:
+      - netbird_data:/var/lib/netbird
+      - ./config.yaml:/etc/netbird/config.yaml:ro
+    environment:
+      # Allow POST /api/setup to create the first owner + return a PAT,
+      # enabling fully automated bootstrap of keys/groups/routes/ACLs.
+      - NB_SETUP_PAT_ENABLED=true
+    command: ["--config", "/etc/netbird/config.yaml"]
+    <<: *default-logging
+
+networks:
+  netbird:
+    name: netbird
+
+volumes:
+  netbird_data:
+  caddy_data:
+  caddy_config:

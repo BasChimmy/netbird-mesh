@@ -1,0 +1,31 @@
+# NetBird setup keys and generated secrets
+netbird/.keys/
+*.key
+
+# Self-signed CA + certs (regenerated locally)
+netbird/certs/*.pem
+netbird/certs/*.key
+netbird/certs/*.crt
+netbird/certs/*.srl
+
+# NetBird control-plane runtime state
+netbird/management.json
+netbird/data/
+netbird/store/
+netbird/*.log
+
+# Rendered manifests (contain injected credentials)
+k8s/mariadb/.rendered/
+k8s/netbird-router/.rendered/
+netbird/config.yaml
+netbird/dashboard.env
+
+# Local env overrides
+.env
+*.local.env
+
+# OS noise
+.DS_Store
+
+# Staged CA copy for docker build
+devops-server/rootCA.pem

@@ -1,0 +1,128 @@
+# ─────────────────────────────────────────────────────────────
+# mariadb.yaml.tmpl — parameterized MariaDB StatefulSet for one namespace.
+# Placeholders (__UPPER__) are substituted by deploy-mariadb.sh.
+#
+# Resources created per namespace:
+#   Secret          mariadb-credentials   (root + app user/db)
+#   Service         mariadb (headless)     for stable StatefulSet DNS
+#   Service         mariadb-client          ClusterIP reached via the mesh
+#   StatefulSet     mariadb (1 replica)     PVC-backed persistence
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mariadb-credentials
+  namespace: __NAMESPACE__
+  labels:
+    app: mariadb
+type: Opaque
+stringData:
+  MARIADB_ROOT_PASSWORD: "__ROOT_PASSWORD__"
+  MARIADB_DATABASE: "__APP_DB__"
+  MARIADB_USER: "__APP_USER__"
+  MARIADB_PASSWORD: "__APP_PASSWORD__"
+---
+# Headless service: stable per-pod DNS (mariadb-0.mariadb.<ns>.svc).
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: __NAMESPACE__
+  labels:
+    app: mariadb
+spec:
+  clusterIP: None
+  selector:
+    app: mariadb
+  ports:
+    - name: mysql
+      port: __MARIADB_PORT__
+      targetPort: mysql
+---
+# ClusterIP service: this is the stable IP the DevOps container reaches
+# across the NetBird mesh (it falls inside the advertised service CIDR).
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb-client
+  namespace: __NAMESPACE__
+  labels:
+    app: mariadb
+spec:
+  type: ClusterIP
+  selector:
+    app: mariadb
+  ports:
+    - name: mysql
+      port: __MARIADB_PORT__
+      targetPort: mysql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mariadb
+  namespace: __NAMESPACE__
+  labels:
+    app: mariadb
+spec:
+  serviceName: mariadb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb
+  template:
+    metadata:
+      labels:
+        app: mariadb
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: mariadb
+          image: __MARIADB_IMAGE__
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: mysql
+              containerPort: __MARIADB_PORT__
+          envFrom:
+            - secretRef:
+                name: mariadb-credentials
+          args:
+            - "--bind-address=0.0.0.0"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - "mariadb-admin ping -h 127.0.0.1 -u root -p\"${MARIADB_ROOT_PASSWORD}\""
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - "mariadb-admin ping -h 127.0.0.1 -u root -p\"${MARIADB_ROOT_PASSWORD}\""
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: __STORAGE_SIZE__

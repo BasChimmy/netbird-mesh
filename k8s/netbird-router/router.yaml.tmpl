@@ -1,0 +1,99 @@
+# ─────────────────────────────────────────────────────────────
+# router.yaml.tmpl — NetBird routing peer for one cluster.
+# Placeholders (__UPPER__) substituted by deploy-router.sh.
+#
+# The agent registers with a reusable+ephemeral setup key (auto-joins its
+# cluster's router group), then advertises that cluster's service CIDR as a
+# network route. It trusts the local self-signed CA and resolves the control
+# plane domain to the host IP via hostAliases.
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: netbird
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: netbird-setup-key
+  namespace: netbird
+type: Opaque
+stringData:
+  NB_SETUP_KEY: "__SETUP_KEY__"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netbird-router
+  namespace: netbird
+  labels:
+    app: netbird-router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netbird-router
+  template:
+    metadata:
+      labels:
+        app: netbird-router
+    spec:
+      # Resolve the control-plane domain to the host running docker-compose.
+      hostAliases:
+        - ip: "__HOST_IP__"
+          hostnames:
+            - "__NETBIRD_DOMAIN__"
+      containers:
+        - name: netbird
+          image: netbirdio/netbird:latest
+          env:
+            - name: NB_SETUP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: netbird-setup-key
+                  key: NB_SETUP_KEY
+            - name: NB_MANAGEMENT_URL
+              value: "https://__NETBIRD_DOMAIN__"
+            - name: NB_ADMIN_URL
+              value: "https://__NETBIRD_DOMAIN__"
+            - name: NB_HOSTNAME
+              value: "__PEER_HOSTNAME__"
+            - name: NB_LOG_LEVEL
+              value: "info"
+            # Trust the mounted self-signed CA for the management TLS.
+            - name: SSL_CERT_FILE
+              value: "/etc/netbird-ca/rootCA.pem"
+          volumeMounts:
+            - name: netbird-ca
+              mountPath: /etc/netbird-ca
+              readOnly: true
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+                - SYS_RESOURCE
+                - SYS_ADMIN
+          livenessProbe:
+            exec:
+              command: ["netbird", "status", "--check", "live"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["netbird", "status", "--check", "ready"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            exec:
+              command: ["netbird", "status", "--check", "startup"]
+            periodSeconds: 3
+            timeoutSeconds: 10
+            failureThreshold: 40
+      volumes:
+        - name: netbird-ca
+          configMap:
+            name: netbird-ca

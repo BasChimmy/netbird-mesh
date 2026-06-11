@@ -1,0 +1,44 @@
+# ─────────────────────────────────────────────────────────────
+# config.yaml.tmpl — combined NetBird server configuration template.
+# Placeholders (__UPPER__) are substituted by netbird-up.sh into the
+# runtime config.yaml. Do NOT commit the rendered config.yaml.
+# ─────────────────────────────────────────────────────────────
+server:
+  # Combined server listens on plain HTTP inside the container; Caddy
+  # terminates TLS in front of it.
+  listenAddress: ":80"
+
+  # Public URL peers + dashboard use. TLS terminated by Caddy on 443.
+  exposedAddress: "https://__NETBIRD_DOMAIN__:443"
+
+  stunPorts:
+    - 3478
+
+  metricsPort: 9090
+  healthcheckAddress: ":9000"
+  logLevel: "info"
+  logFile: "console"
+
+  # Shared secret for the embedded relay (auto-generated).
+  authSecret: "__RELAY_AUTH_SECRET__"
+  dataDir: "/var/lib/netbird/"
+
+  disableAnonymousMetrics: true
+  disableGeoliteUpdate: true
+
+  # ── Embedded identity provider (Dex) ──────────────────────────
+  auth:
+    issuer: "https://__NETBIRD_DOMAIN__/oauth2"
+    localAuthDisabled: false
+    sessionCookieEncryptionKey: "__IDP_COOKIE_KEY__"
+
+    dashboardRedirectURIs:
+      - "https://__NETBIRD_DOMAIN__/nb-auth"
+      - "https://__NETBIRD_DOMAIN__/nb-silent-auth"
+    cliRedirectURIs:
+      - "http://localhost:53000/"
+
+  # ── Datastore (SQLite is fine for a single-node PoC) ──────────
+  store:
+    engine: "sqlite"
+    encryptionKey: "__STORE_ENCRYPTION_KEY__"
