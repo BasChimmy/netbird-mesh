@@ -11,10 +11,10 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=config.sh
-source "${SCRIPT_DIR}/config.sh"
+source "${SCRIPT_DIR}/../../scripts/config.sh"
 
 readonly DEVOPS_DIR="${SCRIPT_DIR}/../devops-server"
-readonly CA_CERT="${SCRIPT_DIR}/../netbird/certs/rootCA.pem"
+readonly CA_CERT="${SCRIPT_DIR}/../../netbird/certs/rootCA.pem"
 readonly DEVOPS_KEY_FILE="${KEYS_DIR}/devops.key"
 
 ACTION="up"

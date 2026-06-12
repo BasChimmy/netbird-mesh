@@ -13,7 +13,7 @@ set -euo pipefail
 # ── CONFIG (sourced from central config.sh) ──────────────────
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=config.sh
-source "${SCRIPT_DIR}/config.sh"
+source "${SCRIPT_DIR}/../../scripts/config.sh"
 
 readonly TEMPLATE="${SCRIPT_DIR}/../k8s/mariadb/mariadb.yaml.tmpl"
 readonly RENDER_DIR="${SCRIPT_DIR}/../k8s/mariadb/.rendered"

@@ -12,7 +12,7 @@ set -uo pipefail   # NOTE: not -e; we want to tally failures, not abort.
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=config.sh
-source "${SCRIPT_DIR}/config.sh"
+source "${SCRIPT_DIR}/../../scripts/config.sh"
 
 readonly LIST_SCRIPT="${SCRIPT_DIR}/list-db-endpoints.sh"
 readonly TEST_TABLE="mesh_poc_check"

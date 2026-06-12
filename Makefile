@@ -1,31 +1,35 @@
 # ─────────────────────────────────────────────────────────────
-# Makefile — NetBird Mesh PoC
+# Makefile — NetBird Mesh PoC (multi-case)
 #
-# This PoC is designed to be followed step-by-step via HANDSON.md.
-# The only automation target is `restart-handson` which resets
-# the environment so you can practice the hands-on guide again.
+# Shared NetBird management plane lives at root (netbird/).
+# Individual PoC cases live under poc/<case-name>/.
 # ─────────────────────────────────────────────────────────────
 
 SHELL := /bin/bash
-SCRIPTS := scripts
-
-# Matches the default in scripts/config.sh; override on the CLI if changed.
-DEVOPS_IMAGE ?= netbird-poc/devops-server:latest
 
 .DEFAULT_GOAL := help
 
-.PHONY: help restart-handson
+.PHONY: help netbird-up netbird-down teardown-all
 
 help: ## Show this help
 	@echo "NetBird mesh PoC — available targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
-		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
-
-restart-handson: ## Reset to a clean slate so you can practice HANDSON.md again
-	@echo "Resetting environment for a fresh HANDSON.md run..."
-	@$(SCRIPTS)/teardown.sh --purge --yes
-	@echo "Removing the DevOps server image (HANDSON.md rebuilds it in Step 9)..."
-	@docker image rm -f $(DEVOPS_IMAGE) >/dev/null 2>&1 || true
 	@echo ""
-	@echo "Clean slate ready. The /etc/hosts entry for netbird.local is kept"
-	@echo "(it survives across runs). Start over from HANDSON.md Step 1."
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
+		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "PoC cases (run make inside each folder):"
+	@echo "  poc/k8s-statefulset/   — cross-cluster MariaDB via minikube"
+	@echo "  poc/bastion-server/    — bastion routing peer to isolated VMs"
+
+netbird-up: ## Start the shared NetBird management plane
+	@./netbird/netbird-up.sh
+
+netbird-down: ## Stop the shared NetBird management plane
+	@docker compose -f netbird/docker-compose.yml down
+
+teardown-all: ## Tear down everything (management + all PoC cases)
+	@echo "Tearing down all PoC resources..."
+	@cd poc/bastion-server && $(MAKE) down 2>/dev/null || true
+	@cd poc/k8s-statefulset && $(MAKE) down 2>/dev/null || true
+	@docker compose -f netbird/docker-compose.yml down -v 2>/dev/null || true
+	@echo "All resources torn down."

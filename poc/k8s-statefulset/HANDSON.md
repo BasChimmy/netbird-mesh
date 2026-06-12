@@ -10,7 +10,7 @@ understand each moving part instead of treating the scripts as a black box.
 **Run everything from the repo root:**
 
 ```bash
-cd /Users/basjirayu/Desktop/my_projects/devops/netbird-poc
+cd /Users/basjirayu/Desktop/my_projects/devops/poc/netbird-mesh-k8s-statefulset
 ```
 
 ## The mental model (read this first)
@@ -327,16 +327,16 @@ template (injecting the namespace and credentials), create the namespace,
 apply, and wait for the database to be ready.
 
 ```bash
-mkdir -p k8s/mariadb/.rendered
+mkdir -p poc/k8s-statefulset/k8s/mariadb/.rendered
 
 for ns in ns1 ns2 ns3; do CTX=clusterA
   sed -e "s|__NAMESPACE__|$ns|g" -e "s|__ROOT_PASSWORD__|rootpass|g" \
       -e "s|__APP_DB__|appdb|g" -e "s|__APP_USER__|appuser|g" \
       -e "s|__APP_PASSWORD__|apppass|g" -e "s|__MARIADB_IMAGE__|mariadb:11.4|g" \
       -e "s|__MARIADB_PORT__|3306|g" -e "s|__STORAGE_SIZE__|1Gi|g" \
-      k8s/mariadb/mariadb.yaml.tmpl > k8s/mariadb/.rendered/mariadb-$ns.yaml
+      poc/k8s-statefulset/k8s/mariadb/mariadb.yaml.tmpl > poc/k8s-statefulset/k8s/mariadb/.rendered/mariadb-$ns.yaml
   kubectl --context $CTX create namespace $ns --dry-run=client -o yaml | kubectl --context $CTX apply -f -
-  kubectl --context $CTX apply -f k8s/mariadb/.rendered/mariadb-$ns.yaml
+  kubectl --context $CTX apply -f poc/k8s-statefulset/k8s/mariadb/.rendered/mariadb-$ns.yaml
   kubectl --context $CTX -n $ns rollout status statefulset/mariadb --timeout 300s
 done
 
@@ -345,9 +345,9 @@ for ns in ns4 ns5; do CTX=clusterB
       -e "s|__APP_DB__|appdb|g" -e "s|__APP_USER__|appuser|g" \
       -e "s|__APP_PASSWORD__|apppass|g" -e "s|__MARIADB_IMAGE__|mariadb:11.4|g" \
       -e "s|__MARIADB_PORT__|3306|g" -e "s|__STORAGE_SIZE__|1Gi|g" \
-      k8s/mariadb/mariadb.yaml.tmpl > k8s/mariadb/.rendered/mariadb-$ns.yaml
+      poc/k8s-statefulset/k8s/mariadb/mariadb.yaml.tmpl > poc/k8s-statefulset/k8s/mariadb/.rendered/mariadb-$ns.yaml
   kubectl --context $CTX create namespace $ns --dry-run=client -o yaml | kubectl --context $CTX apply -f -
-  kubectl --context $CTX apply -f k8s/mariadb/.rendered/mariadb-$ns.yaml
+  kubectl --context $CTX apply -f poc/k8s-statefulset/k8s/mariadb/.rendered/mariadb-$ns.yaml
   kubectl --context $CTX -n $ns rollout status statefulset/mariadb --timeout 300s
 done
 ```
@@ -398,7 +398,7 @@ because embedding a multi-line PEM into YAML via `sed` is error-prone.
 > below. (The scripts do this detection automatically; here we do it by hand.)
 
 ```bash
-mkdir -p k8s/netbird-router/.rendered
+mkdir -p poc/k8s-statefulset/k8s/netbird-router/.rendered
 
 # ---------- clusterA ----------
 kubectl --context clusterA create namespace netbird \
@@ -411,8 +411,8 @@ sed -e "s|__SETUP_KEY__|$(cat netbird/.keys/router-a.key)|g" \
     -e "s|__HOST_IP__|${HOST_IP}|g" \
     -e "s|__NETBIRD_DOMAIN__|netbird.local|g" \
     -e "s|__PEER_HOSTNAME__|netbird-router-clustera|g" \
-    k8s/netbird-router/router.yaml.tmpl > k8s/netbird-router/.rendered/router-A.yaml
-kubectl --context clusterA apply -f k8s/netbird-router/.rendered/router-A.yaml
+    poc/k8s-statefulset/k8s/netbird-router/router.yaml.tmpl > poc/k8s-statefulset/k8s/netbird-router/.rendered/router-A.yaml
+kubectl --context clusterA apply -f poc/k8s-statefulset/k8s/netbird-router/.rendered/router-A.yaml
 kubectl --context clusterA -n netbird rollout status deployment/netbird-router --timeout 180s
 
 # ---------- clusterB ----------
@@ -426,8 +426,8 @@ sed -e "s|__SETUP_KEY__|$(cat netbird/.keys/router-b.key)|g" \
     -e "s|__HOST_IP__|${HOST_IP}|g" \
     -e "s|__NETBIRD_DOMAIN__|netbird.local|g" \
     -e "s|__PEER_HOSTNAME__|netbird-router-clusterb|g" \
-    k8s/netbird-router/router.yaml.tmpl > k8s/netbird-router/.rendered/router-B.yaml
-kubectl --context clusterB apply -f k8s/netbird-router/.rendered/router-B.yaml
+    poc/k8s-statefulset/k8s/netbird-router/router.yaml.tmpl > poc/k8s-statefulset/k8s/netbird-router/.rendered/router-B.yaml
+kubectl --context clusterB apply -f poc/k8s-statefulset/k8s/netbird-router/.rendered/router-B.yaml
 kubectl --context clusterB -n netbird rollout status deployment/netbird-router --timeout 180s
 ```
 
@@ -504,9 +504,9 @@ client + our CA, then run it as a mesh peer in the `devops` group.
 ```bash
 # Stage the CA into the build context (the Dockerfile COPYs ./rootCA.pem),
 # build, then remove the staged copy so it doesn't linger.
-cp netbird/certs/rootCA.pem devops-server/rootCA.pem
-docker build -t netbird-poc/devops-server:latest devops-server
-rm -f devops-server/rootCA.pem
+cp netbird/certs/rootCA.pem poc/k8s-statefulset/devops-server/rootCA.pem
+docker build -t netbird-poc/devops-server:latest poc/k8s-statefulset/devops-server
+rm -f poc/k8s-statefulset/devops-server/rootCA.pem
 
 # Run it as a mesh peer.
 # (Re-detect HOST_IP in case you're in a fresh shell since Step 7.)
@@ -560,7 +560,7 @@ both routing peers `Connected` (ideally `P2P`).
 ### 10a. Capture the current ClusterIPs into a variable
 
 ```bash
-DB_ENDPOINTS="$(for ns in ns1 ns2 ns3 ns6; do kubectl --context clusterA -n $ns get svc mariadb-client -o jsonpath="clusterA $ns {.spec.clusterIP}"$'\n'; done; for ns in ns4 ns5; do kubectl --context clusterB -n $ns get svc mariadb-client -o jsonpath="clusterB $ns {.spec.clusterIP}"$'\n'; done)"
+DB_ENDPOINTS="$(for ns in ns1 ns2 ns3; do kubectl --context clusterA -n $ns get svc mariadb-client -o jsonpath="clusterA $ns {.spec.clusterIP}"$'\n'; done; for ns in ns4 ns5; do kubectl --context clusterB -n $ns get svc mariadb-client -o jsonpath="clusterB $ns {.spec.clusterIP}"$'\n'; done)"
 echo "$DB_ENDPOINTS"
 ```
 
@@ -652,7 +652,7 @@ docker compose -f netbird/docker-compose.yml down -v
 rm -rf netbird/.keys netbird/certs/*.pem netbird/certs/*.csr \
        netbird/certs/*.srl netbird/certs/*.ext \
        netbird/config.yaml netbird/dashboard.env \
-       k8s/mariadb/.rendered k8s/netbird-router/.rendered
+       poc/k8s-statefulset/k8s/mariadb/.rendered poc/k8s-statefulset/k8s/netbird-router/.rendered
 
 # Optional: drop the /etc/hosts line you added in Step 0
 # sudo sed -i '' '/netbird.local/d' /etc/hosts

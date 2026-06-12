@@ -118,7 +118,7 @@ ensure_certs() {
     return 0
   fi
   log_info "Generating self-signed CA + server cert"
-  NETBIRD_DOMAIN="${NETBIRD_DOMAIN}" CERT_DIR="${CERT_DIR}" \
+  env NETBIRD_DOMAIN="${NETBIRD_DOMAIN}" CERT_DIR="${CERT_DIR}" \
     bash "${NETBIRD_DIR}/gen-certs.sh"
 }
 

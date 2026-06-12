@@ -1,0 +1,107 @@
+# ─────────────────────────────────────────────────────────────
+# docker-compose.yml — Bastion Server PoC
+#
+# Architecture:
+#   - 2 MariaDB "VMs" on an isolated internal network (bastion-vms)
+#   - 1 bastion (NetBird routing peer) bridging netbird ↔ bastion-vms
+#   - 1 devops-server (NetBird peer, netbird network ONLY)
+#
+# The devops-server has NO direct route to 10.99.0.0/24.
+# It can only reach the MariaDB VMs through the NetBird mesh route
+# advertised by the bastion.
+# ─────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "50m"
+      max-file: "2"
+
+services:
+  # ── MariaDB "VMs" (isolated network only) ──────────────────
+  vm-db-1:
+    image: mariadb:11.4
+    container_name: vm-db-1
+    restart: unless-stopped
+    networks:
+      bastion-vms:
+        ipv4_address: 10.99.0.11
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: appdb
+      MARIADB_USER: appuser
+      MARIADB_PASSWORD: apppass
+    <<: *default-logging
+
+  vm-db-2:
+    image: mariadb:11.4
+    container_name: vm-db-2
+    restart: unless-stopped
+    networks:
+      bastion-vms:
+        ipv4_address: 10.99.0.12
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: appdb
+      MARIADB_USER: appuser
+      MARIADB_PASSWORD: apppass
+    <<: *default-logging
+
+  # ── Bastion (routing peer — bridges both networks) ─────────
+  bastion:
+    build:
+      context: ./bastion
+    container_name: bastion
+    restart: unless-stopped
+    networks:
+      netbird: {}
+      bastion-vms:
+        ipv4_address: 10.99.0.10
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    sysctls:
+      - net.ipv4.ip_forward=1
+    environment:
+      NB_SETUP_KEY: ${NB_BASTION_SETUP_KEY:?Set NB_BASTION_SETUP_KEY}
+      NB_MANAGEMENT_URL: https://netbird.local
+      NB_HOSTNAME: bastion-server
+      NETBIRD_HOST_IP: ${NETBIRD_HOST_IP:-host-gateway}
+      NETBIRD_DOMAIN: netbird.local
+      BASTION_VM_SUBNET: 10.99.0.0/24
+    depends_on:
+      - vm-db-1
+      - vm-db-2
+    <<: *default-logging
+
+  # ── DevOps server (netbird network ONLY — no bastion-vms) ──
+  devops-server:
+    build:
+      context: ./devops-server
+    container_name: devops-server
+    restart: unless-stopped
+    networks:
+      netbird: {}
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    environment:
+      NB_SETUP_KEY: ${NB_DEVOPS_SETUP_KEY:?Set NB_DEVOPS_SETUP_KEY}
+      NB_MANAGEMENT_URL: https://netbird.local
+      NB_HOSTNAME: devops-bastion-poc
+      NETBIRD_HOST_IP: ${NETBIRD_HOST_IP:-host-gateway}
+      NETBIRD_DOMAIN: netbird.local
+    <<: *default-logging
+
+networks:
+  # Shared NetBird network (created by the management plane compose)
+  netbird:
+    external: true
+
+  # Isolated internal network — only bastion + VMs
+  bastion-vms:
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.99.0.0/24

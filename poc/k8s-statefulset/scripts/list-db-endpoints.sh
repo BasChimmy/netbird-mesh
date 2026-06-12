@@ -12,7 +12,7 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=config.sh
-source "${SCRIPT_DIR}/config.sh"
+source "${SCRIPT_DIR}/../../scripts/config.sh"
 
 readonly CLIENT_SERVICE="mariadb-client"
 OUTPUT_MODE="table"

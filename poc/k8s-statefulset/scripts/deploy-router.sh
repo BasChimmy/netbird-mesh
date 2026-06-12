@@ -12,11 +12,11 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=config.sh
-source "${SCRIPT_DIR}/config.sh"
+source "${SCRIPT_DIR}/../../scripts/config.sh"
 
 readonly TEMPLATE="${SCRIPT_DIR}/../k8s/netbird-router/router.yaml.tmpl"
 readonly RENDER_DIR="${SCRIPT_DIR}/../k8s/netbird-router/.rendered"
-readonly CA_CERT="${SCRIPT_DIR}/../netbird/certs/rootCA.pem"
+readonly CA_CERT="${SCRIPT_DIR}/../../netbird/certs/rootCA.pem"
 
 CLUSTER=""
 DRY_RUN="${DRY_RUN:-false}"

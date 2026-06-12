@@ -15,8 +15,8 @@ netbird/store/
 netbird/*.log
 
 # Rendered manifests (contain injected credentials)
-k8s/mariadb/.rendered/
-k8s/netbird-router/.rendered/
+poc/k8s-statefulset/k8s/mariadb/.rendered/
+poc/k8s-statefulset/k8s/netbird-router/.rendered/
 netbird/config.yaml
 netbird/dashboard.env
 
@@ -28,4 +28,6 @@ netbird/dashboard.env
 .DS_Store
 
 # Staged CA copy for docker build
-devops-server/rootCA.pem
+poc/k8s-statefulset/devops-server/rootCA.pem
+poc/bastion-server/bastion/rootCA.pem
+poc/bastion-server/devops-server/rootCA.pem
